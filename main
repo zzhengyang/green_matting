@@ -1,0 +1,61 @@
+import cv2
+import numpy as np
+
+LOWER_GREEN_H_VALUE = 30
+UPPER_GREEN_H_VALUE = 90
+IGNORE_AREA_SIZE = 3000
+
+image = cv2.imread('origin.png', flags=-1)
+hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+# HSV颜色分量
+# https://blog.csdn.net/Taily_Duan/article/details/51506776
+lower_green = np.array([LOWER_GREEN_H_VALUE, 43, 11])
+upper_green = np.array([UPPER_GREEN_H_VALUE, 255, 255])
+green_mask = cv2.inRange(hsv_image, lower_green, upper_green)
+
+contours, _ = cv2.findContours(green_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+regions_image = image.copy()
+
+realContours = []
+# 遍历轮廓
+flag = True
+for contour in contours:
+    area = cv2.contourArea(contour)
+    # 如果面积过小，则忽略该轮廓
+    if area < IGNORE_AREA_SIZE:
+        continue
+    realContours.append(contour)
+    if contour[0][0][1] < image.shape[1] // 2:
+        cv2.drawContours(regions_image, [contour], -1, (0, 255, 255), 2, lineType=cv2.LINE_AA, offset=(0, 3))
+        cv2.drawContours(image, [contour], -1, (255, 255, 255), 3, lineType=cv2.LINE_AA, offset=(0, 3))
+    else:
+        cv2.drawContours(regions_image, [contour], -1, (0, 255, 255), 2, lineType=cv2.LINE_AA)
+        cv2.drawContours(image, [contour], -1, (255, 255, 255), 4, lineType=cv2.LINE_AA)
+
+# cv2.imwrite('region.png', regions_image)
+
+mask = np.ones_like(image) * 255
+
+cv2.drawContours(mask, realContours, -1, (255, 255, 255, 0), thickness=cv2.FILLED)
+# cv2.imwrite('mask.png', mask)
+
+result = cv2.bitwise_and(image[:, :, 3], mask[:, :, 3])
+image[:, :, 3] = result
+result = image
+
+# gauss = cv2.GaussianBlur(result, (5, 9), 2)
+
+# alpha_gauss = np.expand_dims(gauss[:, :, 3], axis=-1)
+#
+# result = np.where(np.repeat(np.expand_dims(result[:, :, 3] == 0, axis=-1), 4, axis=-1), gauss, result)
+# cv2.imshow('-', result)
+# cv2.waitKey()
+
+cv2.imwrite('result.png', result)
+cv2.imshow('Original Image', image)
+cv2.imshow('Region', regions_image)
+cv2.imshow('Result', result)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
